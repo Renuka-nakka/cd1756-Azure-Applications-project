@@ -10,39 +10,37 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_session import Session
 
-# Initialize the Flask app
-app = Flask(__name__)
-app.config.from_object(Config)
+# Initialize extensions (without app)
+db = SQLAlchemy()
+login = LoginManager()
+sess = Session()
 
-# Enable server-side sessions
-Session(app)
+def create_app():
+    """Flask application factory."""
+    app = Flask(__name__)
+    app.config.from_object(Config)
 
-# Initialize database
-db = SQLAlchemy(app)
+    # Initialize extensions with app
+    db.init_app(app)
+    login.init_app(app)
+    login.login_view = 'login'
+    sess.init_app(app)
 
-# Initialize Flask-Login
-login = LoginManager(app)
-login.login_view = 'login'
+    # -----------------------
+    # Logging Configuration
+    # -----------------------
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
 
-# -----------------------
-# Logging Configuration
-# -----------------------
-if not os.path.exists('logs'):
-    os.mkdir('logs')
+    file_handler = RotatingFileHandler('logs/flask_app.log', maxBytes=10*1024*1024, backupCount=5)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+    ))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Flask app startup')
 
-# Rotating file handler: max 10 MB per file, keep 5 backups
-file_handler = RotatingFileHandler('logs/flask_app.log', maxBytes=10*1024*1024, backupCount=5)
-file_handler.setFormatter(logging.Formatter(
-    '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-))
-file_handler.setLevel(logging.INFO)
-
-# Add handler to app logger
-app.logger.addHandler(file_handler)
-app.logger.setLevel(logging.INFO)
-app.logger.info('Flask app startup')
-
-# -----------------------
-# Import views last
-# -----------------------
-import FlaskWebProject.views
+    # Import routes/views
+    import FlaskWebProject.views
+    return app
