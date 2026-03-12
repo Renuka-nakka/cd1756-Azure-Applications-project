@@ -37,7 +37,10 @@ if not app.debug:
 
     app.logger.addHandler(file_handler)
     app.logger.setLevel(logging.INFO)
-    app.logger.info('Flask startup')
+    app.logger.info('Flask startup')  # This runs on app start
+
+# Ensure Azure captures logs
+app.logger.propagate = True
 
 # Import views and models
 import FlaskWebProject.views
