@@ -8,6 +8,7 @@ from FlaskWebProject.forms import LoginForm, PostForm
 from FlaskWebProject.models import User, Post
 import msal
 
+# Blob storage URL
 imageSourceUrl = f'https://{app.config["BLOB_ACCOUNT"]}.blob.core.windows.net/{app.config["BLOB_CONTAINER"]}/'
 
 
@@ -18,6 +19,7 @@ def login():
 
     form = LoginForm()
 
+    # Local login
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
         if user is None or not user.check_password(form.password.data):
@@ -32,10 +34,7 @@ def login():
 
     # Microsoft login
     session["state"] = str(uuid.uuid4())
-    auth_url = _build_auth_url(
-        scopes=Config.SCOPE,
-        state=session["state"]
-    )
+    auth_url = _build_auth_url(scopes=Config.SCOPE, state=session["state"])
 
     return render_template(
         'login.html',
@@ -47,15 +46,14 @@ def login():
 
 @app.route(Config.REDIRECT_PATH)
 def authorized():
-    # Verify state
+    # Validate state
     if request.args.get("state") != session.get("state"):
         return redirect(url_for("home"))
 
-    # Check for error
+    # Check for MSAL errors
     if "error" in request.args:
         return render_template("auth_error.html", result=request.args)
 
-    # Acquire token
     if "code" in request.args:
         cache = _load_cache()
         result = _build_msal_app(cache=cache).acquire_token_by_authorization_code(
@@ -67,15 +65,16 @@ def authorized():
         if "error" in result:
             return render_template("auth_error.html", result=result)
 
+        # Store user info in session
         session["user"] = result.get("id_token_claims")
 
-        # Use the Azure AD username or fallback to admin
+        # Lookup or create user in local DB
         username = session["user"].get("preferred_username", "admin")
         user = User.query.filter_by(username=username).first()
         if not user:
-            # Optionally create the user in your DB
             user = User(username=username)
-            user.set_password(uuid.uuid4().hex[:10])  # temporary random password
+            # Temporary random password since Azure login bypasses password check
+            user.set_password(uuid.uuid4().hex[:10])
             db.session.add(user)
             db.session.commit()
 
@@ -83,6 +82,17 @@ def authorized():
         _save_cache(cache)
 
     return redirect(url_for('home'))
+
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    if session.get("user"):
+        session.clear()
+        return redirect(
+            f"{Config.AUTHORITY}/oauth2/v2.0/logout?post_logout_redirect_uri={url_for('login', _external=True)}"
+        )
+    return redirect(url_for('login'))
 
 
 def _load_cache():
@@ -98,7 +108,7 @@ def _save_cache(cache):
 
 
 def _build_msal_app(cache=None, authority=None):
-    # Use tenant-specific authority
+    # Use tenant-specific authority to avoid AADSTS50011
     return msal.ConfidentialClientApplication(
         client_id=app.config["CLIENT_ID"],
         client_credential=app.config["CLIENT_SECRET"],
