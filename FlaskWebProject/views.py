@@ -53,20 +53,23 @@ def login():
 
     form = LoginForm()
 
-    # Local login
+    # -------- Local login with logging --------
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
         if user is None or not user.check_password(form.password.data):
+            app.logger.error(f"Login failed for user: {form.username.data}")  # ❌ Log failure
             flash('Invalid username or password')
             return redirect(url_for('login'))
 
         login_user(user, remember=form.remember_me.data)
+        app.logger.info(f"Login successful for user: {form.username.data}")     # ✅ Log success
+
         next_page = request.args.get('next')
         if not next_page or url_parse(next_page).netloc != '':
             next_page = url_for('home')
         return redirect(next_page)
 
-    # Microsoft login
+    # -------- Microsoft login --------
     session["state"] = str(uuid.uuid4())
     auth_url = _build_auth_url(scopes=Config.SCOPE, state=session["state"])
 
@@ -93,6 +96,7 @@ def authorized():
         )
 
         if "error" in result:
+            app.logger.error(f"Microsoft login failed: {result.get('error_description')}")  # ❌ Log failure
             return render_template("auth_error.html", result=result)
 
         # Store claims in session
@@ -109,6 +113,7 @@ def authorized():
             db.session.commit()
 
         login_user(user)
+        app.logger.info(f"Microsoft login successful for user: {username}")  # ✅ Log success
         _save_cache(cache)
 
     return redirect(url_for('home'))
