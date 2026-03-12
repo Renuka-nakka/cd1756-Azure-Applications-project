@@ -38,8 +38,10 @@ jobs:
         with:
           name: python-app
           path: |
-            .
-            !antenv/
+            application.py
+            config.py
+            requirements.txt
+            FlaskWebProject/
 
       # 🚫 Opting Out of Oryx Build
       # If you prefer to disable the Oryx build process during deployment, follow these steps:
@@ -63,4 +65,5 @@ jobs:
         with:
           app-name: 'flaskwebproject2'
           slot-name: 'Production'
+
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_B289E398E72E488194B9605FFF8747A0 }}
