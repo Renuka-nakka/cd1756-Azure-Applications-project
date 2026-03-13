@@ -31,7 +31,7 @@ class Config(object):
     # AUTHORITY = "https://login.microsoftonline.com/Enter_the_Tenant_Name_Here"
 
     CLIENT_ID = os.getenv('CLIENT_ID')
-    SERVER_NAME = "flaskapp5-c4b3haecf4gzc3en.southindia-01.azurewebsites.net"
+    SERVER_NAME = "flaskapp5.southindia-01.azurewebsites.net"
 
     REDIRECT_PATH = "/getAToken"  # Used to form an absolute URL; must match to app's redirect_uri set in AAD
 
